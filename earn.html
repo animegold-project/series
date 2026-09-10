@@ -298,39 +298,40 @@
 
     let userRef, userData = {};
 
-    // Rotating schedule: only 1 series available per hour
-    const SERIES_SCHEDULE = [
-      { name: 'System Analyzer', file: 'system-analyzer.html', hour: 0, episodes: 30, comingSoon: false },
-      { name: 'The Gamer', file: 'the-gamer.html', hour: 1, episodes: 35, comingSoon: false },
-      { name: '+99 Reinforced Wooden Stick', file: '99-reinforced-wooden-stick.html', hour: 2, episodes: 46, comingSoon: false },
-      { name: 'Slam Jam', file: 'slam-jam.html', hour: 3, episodes: 38, comingSoon: false },
-      { name: 'Guardians of Rokia', file: 'guardians-of-rokia.html', hour: 4, episodes: 42, comingSoon: false },
-      { name: 'Life.exe', file: 'life-exe.html', hour: 5, episodes: 17, comingSoon: false },
-      { name: 'Grimoire', file: 'grimoire.html', hour: null, episodes: null, comingSoon: true },
-      { name: 'Reincarnated as a Golden Slime', file: 'reincarnated-as-a-golden-slime.html', hour: null, episodes: null, comingSoon: true }
+    // Base series data
+    const BASE_SERIES = [
+      { name: 'System Analyzer', file: 'system-analyzer.html', episodes: 30 },
+      { name: 'The Gamer', file: 'the-gamer.html', episodes: 35 },
+      { name: '+99 Reinforced Wooden Stick', file: '99-reinforced-wooden-stick.html', episodes: 46 },
+      { name: 'Slam Jam', file: 'slam-jam.html', episodes: 38 },
+      { name: 'Guardians of Rokia', file: 'guardians-of-rokia.html', episodes: 42 },
+      { name: 'Life.exe', file: 'life-exe.html', episodes: 17 }
     ];
+
+    const COMING_SOON = [
+      { name: 'Grimoire', file: 'grimoire.html', comingSoon: true },
+      { name: 'Reincarnated as a Golden Slime', file: 'reincarnated-as-a-golden-slime.html', comingSoon: true }
+    ];
+
+    // Generate 24-hour schedule (repeating cycles of 6 series)
+    const SERIES_SCHEDULE = [];
+    for (let hour = 0; hour < 24; hour++) {
+      const seriesIndex = hour % BASE_SERIES.length;
+      const series = BASE_SERIES[seriesIndex];
+      SERIES_SCHEDULE.push({
+        ...series,
+        hour: hour,
+        comingSoon: false
+      });
+    }
+    // Add coming soon series
+    SERIES_SCHEDULE.push(...COMING_SOON);
 
     function isSeriesAvailableNow(seriesHour) {
       const now = new Date();
       const currentHour = now.getHours();
       // Only this hour's series is available
       return currentHour === seriesHour;
-    }
-
-    function getNextAvailableTime(seriesHour) {
-      const now = new Date();
-      const currentHour = now.getHours();
-      
-      if (currentHour === seriesHour) {
-        return null; // Currently available
-      }
-      
-      let nextHour = seriesHour;
-      if (seriesHour <= currentHour) {
-        nextHour = seriesHour + 24; // Tomorrow
-      }
-      
-      return `${String(seriesHour).padStart(2, '0')}:00`;
     }
 
     function createSeriesButtons() {
@@ -438,7 +439,7 @@
     </div>
 
     <div class="section">
-      <h2>📺 Watch Series (Hourly Rotation)</h2>
+      <h2>📺 Watch Series (24-Hour Rotating Schedule)</h2>
       <p style="color: #ff9800; font-size: 14px;">🎬 Only ONE series available per hour • 🔓 Available NOW • 🔒 Locked until its time slot • ✨ Coming Soon</p>
       <div class="series-grid" id="seriesGrid"></div>
       
