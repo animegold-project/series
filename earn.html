@@ -298,47 +298,40 @@
 
     let userRef, userData = {};
 
-    // Base series data
-    const BASE_SERIES = [
-      { name: 'System Analyzer', file: 'system-analyzer.html', episodes: 30 },
-      { name: 'The Gamer', file: 'the-gamer.html', episodes: 35 },
-      { name: '+99 Reinforced Wooden Stick', file: '99-reinforced-wooden-stick.html', episodes: 46 },
-      { name: 'Slam Jam', file: 'slam-jam.html', episodes: 38 },
-      { name: 'Guardians of Rokia', file: 'guardians-of-rokia.html', episodes: 42 },
-      { name: 'Life.exe', file: 'life-exe.html', episodes: 17 }
+    // Only 8 unique series boxes
+    const SERIES_DATA = [
+      { name: 'System Analyzer', file: 'system-analyzer.html', episodes: 30, hours: [0, 6, 12, 18], comingSoon: false },
+      { name: 'The Gamer', file: 'the-gamer.html', episodes: 35, hours: [1, 7, 13, 19], comingSoon: false },
+      { name: '+99 Reinforced Wooden Stick', file: '99-reinforced-wooden-stick.html', episodes: 46, hours: [2, 8, 14, 20], comingSoon: false },
+      { name: 'Slam Jam', file: 'slam-jam.html', episodes: 38, hours: [3, 9, 15, 21], comingSoon: false },
+      { name: 'Guardians of Rokia', file: 'guardians-of-rokia.html', episodes: 42, hours: [4, 10, 16, 22], comingSoon: false },
+      { name: 'Life.exe', file: 'life-exe.html', episodes: 17, hours: [5, 11, 17, 23], comingSoon: false },
+      { name: 'Grimoire', file: 'grimoire.html', episodes: null, hours: [], comingSoon: true },
+      { name: 'Reincarnated as a Golden Slime', file: 'reincarnated-as-a-golden-slime.html', episodes: null, hours: [], comingSoon: true }
     ];
 
-    const COMING_SOON = [
-      { name: 'Grimoire', file: 'grimoire.html', comingSoon: true },
-      { name: 'Reincarnated as a Golden Slime', file: 'reincarnated-as-a-golden-slime.html', comingSoon: true }
-    ];
-
-    // Generate 24-hour schedule (repeating cycles of 6 series)
-    const SERIES_SCHEDULE = [];
-    for (let hour = 0; hour < 24; hour++) {
-      const seriesIndex = hour % BASE_SERIES.length;
-      const series = BASE_SERIES[seriesIndex];
-      SERIES_SCHEDULE.push({
-        ...series,
-        hour: hour,
-        comingSoon: false
-      });
-    }
-    // Add coming soon series
-    SERIES_SCHEDULE.push(...COMING_SOON);
-
-    function isSeriesAvailableNow(seriesHour) {
+    function isSeriesAvailableNow(hours) {
       const now = new Date();
       const currentHour = now.getHours();
-      // Only this hour's series is available
-      return currentHour === seriesHour;
+      return hours.includes(currentHour);
+    }
+
+    function getNextAvailableHour(hours) {
+      const now = new Date();
+      const currentHour = now.getHours();
+      
+      // Find next available hour
+      let nextHour = hours.find(h => h > currentHour);
+      if (!nextHour) nextHour = hours[0];
+      
+      return `${String(nextHour).padStart(2, '0')}:00`;
     }
 
     function createSeriesButtons() {
       const grid = document.getElementById('seriesGrid');
       grid.innerHTML = '';
 
-      SERIES_SCHEDULE.forEach((series) => {
+      SERIES_DATA.forEach((series) => {
         const btn = document.createElement('button');
         btn.className = 'series-btn';
         
@@ -352,20 +345,21 @@
             window.location.href = series.file;
           };
         } else {
-          const available = isSeriesAvailableNow(series.hour);
+          const available = isSeriesAvailableNow(series.hours);
           if (!available) btn.classList.add('locked');
 
+          const hoursDisplay = series.hours.map(h => `${String(h).padStart(2, '0')}:00`).join(', ');
           btn.innerHTML = `
             ${series.name}
             <div class="series-time">📺 ${series.episodes} episodes</div>
-            <div class="series-time">🕐 ${String(series.hour).padStart(2, '0')}:00</div>
+            <div class="series-time">🕐 ${hoursDisplay}</div>
           `;
 
           btn.onclick = () => {
             if (available) {
               window.location.href = series.file;
             } else {
-              showTimeModal(series.name, String(series.hour).padStart(2, '0') + ':00');
+              showTimeModal(series.name, getNextAvailableHour(series.hours));
             }
           };
         }
@@ -374,10 +368,10 @@
       });
     }
 
-    function showTimeModal(seriesName, availableTime) {
+    function showTimeModal(seriesName, nextAvailableTime) {
       const modal = document.getElementById('timeModal');
       document.getElementById('seriesNameDisplay').textContent = seriesName;
-      document.getElementById('availableTimeDisplay').textContent = availableTime;
+      document.getElementById('availableTimeDisplay').textContent = nextAvailableTime;
       modal.style.display = 'flex';
     }
 
@@ -440,7 +434,7 @@
 
     <div class="section">
       <h2>📺 Watch Series (24-Hour Rotating Schedule)</h2>
-      <p style="color: #ff9800; font-size: 14px;">🎬 Only ONE series available per hour • 🔓 Available NOW • 🔒 Locked until its time slot • ✨ Coming Soon</p>
+      <p style="color: #ff9800; font-size: 14px;">🔓 Available NOW • 🔒 Locked • ✨ Coming Soon • Each series rotates 4 times daily</p>
       <div class="series-grid" id="seriesGrid"></div>
       
       <div style="margin-top: 20px;">
@@ -457,7 +451,7 @@
       <p>
         <strong id="seriesNameDisplay">Series Name</strong>
       </p>
-      <p>This series will be available at:</p>
+      <p>Next available at:</p>
       <p style="color: #27ae60; font-size: 20px; font-weight: bold;">
         🕐 <span id="availableTimeDisplay">--:--</span>
       </p>
