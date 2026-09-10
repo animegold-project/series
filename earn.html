@@ -148,11 +148,42 @@
       right: 10px;
     }
 
+    .series-btn.coming-soon {
+      opacity: 0.7;
+      cursor: default;
+      color: #ffd700;
+      background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 215, 0, 0.05));
+      border-color: rgba(255, 215, 0, 0.3);
+    }
+
+    .series-btn.coming-soon::after {
+      content: '✨';
+      position: absolute;
+      font-size: 24px;
+      top: 5px;
+      right: 10px;
+    }
+
+    .series-btn.coming-soon:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4);
+      border-color: #ffd700;
+      background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.1));
+    }
+
     .series-time {
       font-size: 12px;
       color: #ff9800;
       margin-top: 8px;
       font-weight: normal;
+    }
+
+    .coming-soon-label {
+      font-size: 12px;
+      color: #ffd700;
+      margin-top: 8px;
+      font-weight: bold;
+      text-transform: uppercase;
     }
 
     .modal {
@@ -268,12 +299,14 @@
     let userRef, userData = {};
 
     const SERIES_SCHEDULE = {
-      'System Analyzer': { file: 'system-analyzer.html', time: 19, episodes: 30 },
-      'The Gamer': { file: 'the-gamer.html', time: 20, episodes: 35 },
-      '+99 Reinforced Wooden Stick': { file: '99-reinforced-wooden-stick.html', time: 21, episodes: 46 },
-      'Slam Jam': { file: 'slam-jam.html', time: 22, episodes: 38 },
-      'Guardians of Rokia': { file: 'guardians-of-rokia.html', time: 23, episodes: 42 },
-      'Life.exe': { file: 'life-exe.html', time: 0, episodes: 17 }
+      'System Analyzer': { file: 'system-analyzer.html', time: 19, episodes: 30, comingSoon: false },
+      'The Gamer': { file: 'the-gamer.html', time: 20, episodes: 35, comingSoon: false },
+      '+99 Reinforced Wooden Stick': { file: '99-reinforced-wooden-stick.html', time: 21, episodes: 46, comingSoon: false },
+      'Slam Jam': { file: 'slam-jam.html', time: 22, episodes: 38, comingSoon: false },
+      'Guardians of Rokia': { file: 'guardians-of-rokia.html', time: 23, episodes: 42, comingSoon: false },
+      'Life.exe': { file: 'life-exe.html', time: 0, episodes: 17, comingSoon: false },
+      'Grimoire': { file: 'grimoire.html', time: null, episodes: null, comingSoon: true },
+      'Reincarnated as a Golden Slime': { file: 'reincarnated-as-a-golden-slime.html', time: null, episodes: null, comingSoon: true }
     };
 
     function isSeriesAvailable(scheduledHour) {
@@ -295,22 +328,33 @@
         const btn = document.createElement('button');
         btn.className = 'series-btn';
         
-        const available = isSeriesAvailable(data.time);
-        if (!available) btn.classList.add('locked');
-
-        btn.innerHTML = `
-          ${seriesName}
-          <div class="series-time">📺 ${data.episodes} episodes</div>
-          <div class="series-time">🕐 ${getAvailableTime(data.time)}</div>
-        `;
-
-        btn.onclick = () => {
-          if (available) {
+        if (data.comingSoon) {
+          btn.classList.add('coming-soon');
+          btn.innerHTML = `
+            ${seriesName}
+            <div class="coming-soon-label">🎬 Coming Soon</div>
+          `;
+          btn.onclick = () => {
             window.location.href = data.file;
-          } else {
-            showTimeModal(seriesName, getAvailableTime(data.time));
-          }
-        };
+          };
+        } else {
+          const available = isSeriesAvailable(data.time);
+          if (!available) btn.classList.add('locked');
+
+          btn.innerHTML = `
+            ${seriesName}
+            <div class="series-time">📺 ${data.episodes} episodes</div>
+            <div class="series-time">🕐 ${getAvailableTime(data.time)}</div>
+          `;
+
+          btn.onclick = () => {
+            if (available) {
+              window.location.href = data.file;
+            } else {
+              showTimeModal(seriesName, getAvailableTime(data.time));
+            }
+          };
+        }
 
         grid.appendChild(btn);
       });
@@ -382,7 +426,7 @@
 
     <div class="section">
       <h2>📺 Watch Series (Time-Based Unlock)</h2>
-      <p style="color: #ff9800; font-size: 14px;">🔓 Series unlock at specific times • 🔒 Locked series show unlock time</p>
+      <p style="color: #ff9800; font-size: 14px;">🔓 Series unlock at specific times • 🔒 Locked series show unlock time • ✨ Coming Soon</p>
       <div class="series-grid" id="seriesGrid"></div>
       
       <div style="margin-top: 20px;">
