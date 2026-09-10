@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Earn Points - AnimeGold</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      background: linear-gradient(-45deg, #1a0033, #2d0052, #0a0a2e, #16213e);
+      background-size: 400% 400%;
+      animation: gradient 15s ease infinite;
+      font-family: 'Arial', sans-serif;
+      background-attachment: fixed;
+      color: #fff;
+      text-align: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    @keyframes gradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    h1 {
+      font-size: 2em;
+      margin: 30px 0 10px 0;
+      background: linear-gradient(135deg, #ff9800, #ffb84d, #ff6b00);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: glow 2s ease-in-out infinite;
+    }
+
+    @keyframes glow {
+      0%, 100% { filter: drop-shadow(0 0 5px rgba(255, 152, 0, 0.5)); }
+      50% { filter: drop-shadow(0 0 15px rgba(255, 152, 0, 0.8)); }
+    }
+
+    .section {
+      background: rgba(20, 20, 40, 0.85);
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(255, 152, 0, 0.3);
+      box-shadow: 0 8px 32px rgba(255, 152, 0, 0.2), 0 0 50px rgba(255, 152, 0, 0.1);
+      margin: 20px auto;
+      padding: 25px;
+      border-radius: 15px;
+      max-width: 900px;
+      animation: slideIn 0.6s ease-out;
+      position: relative;
+      z-index: 1;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .section h2 {
+      color: #ffb84d;
+      margin-bottom: 15px;
+      font-size: 1.4em;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 8px 15px;
+      border-radius: 20px;
+      font-weight: bold;
+      margin: 10px 0;
+      font-size: 14px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    .status-active {
+      background: rgba(39, 174, 96, 0.4);
+      border: 2px solid #27ae60;
+      box-shadow: 0 0 15px rgba(39, 174, 96, 0.5);
+    }
+
+    .status-inactive {
+      background: rgba(149, 165, 166, 0.4);
+      border: 2px solid #95a5a6;
+      box-shadow: 0 0 15px rgba(149, 165, 166, 0.3);
+    }
+
+    .series-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .series-btn {
+      background: linear-gradient(135deg, rgba(255, 152, 0, 0.1), rgba(255, 152, 0, 0.05));
+      border: 2px solid rgba(255, 152, 0, 0.3);
+      padding: 30px;
+      border-radius: 10px;
+      color: #ffb84d;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(255, 152, 0, 0.2);
+      position: relative;
+    }
+
+    .series-btn:hover:not(.locked) {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 25px rgba(255, 152, 0, 0.4);
+      border-color: #ff9800;
+      background: linear-gradient(135deg, rgba(255, 152, 0, 0.2), rgba(255, 152, 0, 0.1));
+    }
+
+    .series-btn.locked {
+      opacity: 0.6;
+      cursor: not-allowed;
+      color: #95a5a6;
+      background: linear-gradient(135deg, rgba(149, 165, 166, 0.1), rgba(149, 165, 166, 0.05));
+      border-color: rgba(149, 165, 166, 0.3);
+    }
+
+    .series-btn.locked::after {
+      content: '🔒';
+      position: absolute;
+      font-size: 24px;
+      top: 5px;
+      right: 10px;
+    }
+
+    .series-time {
+      font-size: 12px;
+      color: #ff9800;
+      margin-top: 8px;
+      font-weight: normal;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+
+    .modal-content {
+      background: rgba(20, 20, 40, 0.95);
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(255, 152, 0, 0.3);
+      padding: 30px;
+      border-radius: 15px;
+      text-align: center;
+      width: 300px;
+      box-shadow: 0 0 50px rgba(255, 152, 0, 0.3);
+    }
+
+    .modal-content h2 {
+      margin-top: 0;
+      color: #ffb84d;
+      margin-bottom: 20px;
+    }
+
+    .modal-content p {
+      color: #b0b0ff;
+      margin: 15px 0;
+      font-size: 16px;
+    }
+
+    .modal-content button {
+      background: linear-gradient(135deg, #ff9800, #ffb84d);
+      border: none;
+      padding: 12px 30px;
+      border-radius: 8px;
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 20px;
+      font-size: 16px;
+    }
+
+    .modal-content button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 25px rgba(255, 152, 0, 0.6);
+    }
+
+    button.close-modal {
+      background: linear-gradient(135deg, #e74c3c, #c0392b);
+      color: #fff;
+    }
+
+    p {
+      color: #b0b0ff;
+      margin: 10px 0;
+    }
+
+    button {
+      margin: 8px 5px;
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #ff9800, #ffb84d);
+      border: none;
+      border-radius: 8px;
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(255, 152, 0, 0.4);
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 25px rgba(255, 152, 0, 0.6);
+    }
+
+    button.admin-btn {
+      background: linear-gradient(135deg, #c0392b, #e74c3c);
+      color: #fff;
+    }
+
+    button.admin-btn:hover {
+      box-shadow: 0 6px 25px rgba(192, 57, 43, 0.6);
+    }
+  </style>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyB6qQybRVw4nlwGA-Kp8d6kCqOhdqo11Aw",
+      authDomain: "animegold-bf2a7.firebaseapp.com",
+      projectId: "animegold-bf2a7",
+      storageBucket: "animegold-bf2a7.firebasestorage.app",
+      messagingSenderId: "1055086176557",
+      appId: "1:1055086176557:web:aca8f68412e95ef369cba4",
+      measurementId: "G-J9LX9WMPJK"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let userRef, userData = {};
+
+    const SERIES_SCHEDULE = {
+      'System Analyzer': { file: 'system-analyzer.html', time: 19, episodes: 30 },
+      'The Gamer': { file: 'the-gamer.html', time: 20, episodes: 35 },
+      '+99 Reinforced Wooden Stick': { file: '99-reinforced-wooden-stick.html', time: 21, episodes: 46 },
+      'Slam Jam': { file: 'slam-jam.html', time: 22, episodes: 38 },
+      'Guardians of Rokia': { file: 'guardians-of-rokia.html', time: 23, episodes: 42 },
+      'Life.exe': { file: 'life-exe.html', time: 0, episodes: 17 }
+    };
+
+    function isSeriesAvailable(scheduledHour) {
+      const now = new Date();
+      const currentHour = now.getHours();
+      return currentHour >= scheduledHour;
+    }
+
+    function getAvailableTime(scheduledHour) {
+      const hour = scheduledHour === 0 ? 24 : scheduledHour;
+      return `${String(scheduledHour).padStart(2, '0')}:00`;
+    }
+
+    function createSeriesButtons() {
+      const grid = document.getElementById('seriesGrid');
+      grid.innerHTML = '';
+
+      Object.entries(SERIES_SCHEDULE).forEach(([seriesName, data]) => {
+        const btn = document.createElement('button');
+        btn.className = 'series-btn';
+        
+        const available = isSeriesAvailable(data.time);
+        if (!available) btn.classList.add('locked');
+
+        btn.innerHTML = `
+          ${seriesName}
+          <div class="series-time">📺 ${data.episodes} episodes</div>
+          <div class="series-time">🕐 ${getAvailableTime(data.time)}</div>
+        `;
+
+        btn.onclick = () => {
+          if (available) {
+            window.location.href = data.file;
+          } else {
+            showTimeModal(seriesName, getAvailableTime(data.time));
+          }
+        };
+
+        grid.appendChild(btn);
+      });
+    }
+
+    function showTimeModal(seriesName, availableTime) {
+      const modal = document.getElementById('timeModal');
+      document.getElementById('seriesNameDisplay').textContent = seriesName;
+      document.getElementById('availableTimeDisplay').textContent = availableTime;
+      modal.style.display = 'flex';
+    }
+
+    window.closeTimeModal = () => {
+      document.getElementById('timeModal').style.display = 'none';
+    };
+
+    window.logout = () => {
+      signOut(auth).then(() => window.location.href = "index.html");
+    };
+
+    onAuthStateChanged(auth, async (u) => {
+      if (u) {
+        const usersSnap = await getDocs(query(collection(db, "users"), where("uid", "==", u.uid)));
+        
+        if (!usersSnap.empty) {
+          const userDoc = usersSnap.docs[0];
+          userRef = doc(db, "users", userDoc.id);
+          userData = userDoc.data();
+
+          // Use realtime updates so total points reflect immediately when updated elsewhere
+          onSnapshot(userRef, (snap) => {
+            if (!snap.exists()) return;
+            userData = snap.data();
+            document.getElementById("greeting").innerText = "Hello, " + (userData.userName || "User") + "!";
+            // Prefer totalPoints if present, otherwise fallback to legacy minuteCounter calculation
+            const totalPointsValue = (typeof userData.totalPoints === 'number') ? userData.totalPoints : ((userData.minuteCounter || 0) / 300);
+            document.getElementById("points").innerText = (totalPointsValue || 0).toFixed(4) + " points";
+            document.getElementById("pending").innerText = userData.pendingEarnings || 0;
+            document.getElementById("total").innerText = userData.totalEarnings || userData.totalPoints || 0;
+
+            if (u.email === "shadowtrimz@gmail.com") {
+              document.getElementById("adminBtn").style.display = "inline-block";
+            }
+
+            createSeriesButtons();
+          });
+
+          createSeriesButtons();
+          setInterval(createSeriesButtons, 60000); // Update every minute
+        } else {
+          window.location.href = "index.html";
+        }
+      } else {
+        window.location.href = "index.html";
+      }
+    });
+  </script>
+</head>
+<body>
+  <div class="container">
+    <h1 id="greeting">Loading...</h1>
+    
+    <div class="section">
+      <div id="statusBadge" class="status-badge status-inactive">⚫ INACTIVE</div>
+      <p>Total Points: <span id="points">0.0000 points</span></p>
+      <p>Pending Earnings: ₱<span id="pending">0</span></p>
+      <p>Total Earnings: ₱<span id="total">0</span></p>
+    </div>
+
+    <div class="section">
+      <h2>📺 Watch Series (Time-Based Unlock)</h2>
+      <p style="color: #ff9800; font-size: 14px;">🔓 Series unlock at specific times • 🔒 Locked series show unlock time</p>
+      <div class="series-grid" id="seriesGrid"></div>
+      
+      <div style="margin-top: 20px;">
+        <button id="adminBtn" onclick="window.location.href='admin.html'" class="admin-btn" style="display: none;">Admin Panel</button>
+        <button onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Time Locked Modal -->
+  <div id="timeModal" class="modal">
+    <div class="modal-content">
+      <h2>⏰ Series Locked</h2>
+      <p>
+        <strong id="seriesNameDisplay">Series Name</strong>
+      </p>
+      <p>This series will be available at:</p>
+      <p style="color: #27ae60; font-size: 20px; font-weight: bold;">
+        🕐 <span id="availableTimeDisplay">--:--</span>
+      </p>
+      <p style="font-size: 12px;">Come back later to start earning!</p>
+      <button class="close-modal" onclick="closeTimeModal()">OK</button>
+    </div>
+  </div>
+</body>
+</html>
