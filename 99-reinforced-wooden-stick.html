@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>+99 Reinforced Wooden Stick - AnimeGold</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box }
+    body{ background:linear-gradient(-45deg,#1a0033,#2d0052,#0a0a2e,#16213e);background-size:400% 400%;animation:gradient 15s ease infinite;font-family:Arial,sans-serif;color:#fff;padding:20px;min-height:100vh;overflow-x:hidden;background-attachment:fixed }
+    @keyframes gradient{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+    .container{max-width:900px;margin:0 auto}
+    h1{font-size:2.2rem;background:linear-gradient(135deg,#ff9800,#ffb84d);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:18px}
+    .status-info{background:rgba(20,20,40,0.85);padding:14px;border-radius:10px;margin-bottom:18px;border:1px solid rgba(255,152,0,0.18)}
+    .episodes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:18px}
+    .episode-cell{background:rgba(255,255,255,0.02);padding:8px;border-radius:8px;border:1px solid rgba(255,152,0,0.08);display:flex;flex-direction:column;align-items:center}
+    .episode-btn{padding:12px;border-radius:8px;border:2px solid rgba(255,152,0,0.22);background:linear-gradient(135deg,rgba(255,152,0,0.08),rgba(255,152,0,0.03));color:#ffb84d;font-weight:bold;cursor:pointer;transition:all 0.3s ease;box-shadow:0 4px 15px rgba(255,152,0,0.2)}
+    .episode-btn:hover:not(.locked){transform:translateY(-3px);box-shadow:0 6px 20px rgba(255,152,0,0.4);border-color:#ff9800}
+    .episode-btn.locked{opacity:.45;cursor:not-allowed;color:#95a5a6}
+    .episode-btn.active{background:linear-gradient(135deg,#ff9800,#ffb84d);color:#000}
+    .player-section{background:rgba(20,20,40,0.9);padding:18px;border-radius:12px;margin-bottom:10px}
+    .video-placeholder{height:260px;background:#111;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#ff9800;margin-bottom:12px;border:1px solid rgba(255,152,0,0.12)}
+    .stats{margin-bottom:12px;text-align:left;color:#ffb84d}
+    .controls{display:flex;gap:8px;justify-content:center}
+    button{padding:10px 18px;border-radius:8px;border:none;cursor:pointer}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .progress-bar{height:8px;background:rgba(255,152,0,0.08);border-radius:4px;overflow:hidden;margin:12px 0}
+    .progress-fill{height:100%;background:linear-gradient(90deg,#ff9800,#ffb84d);width:0%}
+    .notification{position:fixed;top:18px;right:18px;background:#27ae60;padding:10px 14px;border-radius:8px;color:#fff;font-weight:700}
+  </style>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, arrayUnion, increment, onSnapshot } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+
+    // Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyB6qQybRVw4nlwGA-Kp8d6kCqOhdqo11Aw",
+      authDomain: "animegold-bf2a7.firebaseapp.com",
+      projectId: "animegold-bf2a7",
+      storageBucket: "animegold-bf2a7.firebasestorage.app",
+      messagingSenderId: "1055086176557",
+      appId: "1:1055086176557:web:aca8f68412e95ef369cba4",
+      measurementId: "G-J9LX9WMPJK"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // State
+    let userRef = null;
+    let userData = {};
+    let unlockedEpisodes = [1];
+    let currentEpisode = null;
+    let isWatching = false;
+    let watchStartMs = 0;
+    let watchInterval = null;
+    let minuteSaver = null;
+    let watchSeconds = 0;
+    let pointsThisSession = 0;
+
+    const TOTAL_EPISODES = 46;
+    let POINTS_PER_MINUTE = 0.0001;
+    const UNLOCK_THRESHOLD_MINUTES = 1;
+    const SERIES_NAME = '+99 Reinforced Wooden Stick';
+
+    // Utilities
+    function showNotification(msg, ms = 3000){ const n=document.createElement('div'); n.className='notification'; n.textContent=msg; document.body.appendChild(n); setTimeout(()=>n.remove(), ms); }
+
+    // UI: render episode buttons based on unlockedEpisodes
+    function createEpisodeButtons(){
+      const grid = document.getElementById('episodesGrid'); if(!grid) return; grid.innerHTML = '';
+      for(let i=1;i<=TOTAL_EPISODES;i++){
+        const cell = document.createElement('div'); cell.className = 'episode-cell';
+        const btn = document.createElement('button'); btn.className='episode-btn'; btn.textContent = `${i}`; btn.dataset.ep = i; btn.setAttribute('aria-label', `Episode ${i}`);
+        if(!unlockedEpisodes.includes(i)){
+          btn.classList.add('locked'); btn.disabled = true;
+        } else {
+          btn.addEventListener('click', ()=> selectEpisode(i));
+        }
+        cell.appendChild(btn);
+        grid.appendChild(cell);
+      }
+    }
+
+    // Try to embed exact URL first, then fall back to candidates
+    function tryEmbedAndPlay(ep){
+      const iframe = document.getElementById('episodeIframe');
+      const poster = document.getElementById('playerPoster');
+      const fallback = document.getElementById('iframeFallback');
+      const exact = `https://trimz.tv/99-wooden-stick?ep=${ep}`;
+      const candidates = [ exact, `https://trimz.tv/embed/99-wooden-stick?ep=${ep}`, `https://trimz.tv/watch/99-wooden-stick?ep=${ep}`, `https://trimz.tv/99-wooden-stick?episode=${ep}` ];
+      let loaded = false; let t = 0;
+      const attempt = (src)=>{
+        console.log('Trying iframe src:', src);
+        if(!iframe || !poster || !fallback) return;
+        iframe.style.display = 'none'; poster.style.display = 'block'; fallback.style.display = 'none';
+        const onload = ()=>{ loaded = true; iframe.style.display='block'; poster.style.display='none'; try{ iframe.removeEventListener('load', onload); }catch(e){} showNotification('Embedded playback started'); };
+        iframe.addEventListener('load', onload);
+        iframe.addEventListener('error', ()=>{ console.warn('iframe error for', src); });
+        try{ iframe.removeAttribute('sandbox'); }catch(e){}
+        iframe.src = src;
+        setTimeout(()=>{
+          if(loaded) return;
+          try{ iframe.removeEventListener('load', onload); }catch(e){}
+          t++;
+          if(t < candidates.length) { attempt(candidates[t]); return; }
+          fallback.style.display = 'block'; poster.style.display = 'block'; iframe.style.display = 'none';
+          showNotification('Embedding blocked or page not found in iframe — use browser to open the episode');
+        },2500);
+      };
+      attempt(candidates[0]);
+    }
+
+    // Listen for series settings changes (live)
+    try{
+      const settingsRef = doc(db, 'seriesSettings', '99-wooden-stick');
+      onSnapshot(settingsRef, (snap)=>{
+        if(!snap.exists()) return;
+        const data = snap.data();
+        if(data && (typeof data.pointsPerMinute === 'number' || typeof data.pointsPerMinute === 'string')){
+          const v = Number(data.pointsPerMinute);
+          if(!isNaN(v)){
+            POINTS_PER_MINUTE = v;
+            const rateEl = document.getElementById('earningRate'); if(rateEl) rateEl.textContent = POINTS_PER_MINUTE.toFixed(4);
+            showNotification(`⚡ Earning rate updated to ${POINTS_PER_MINUTE.toFixed(4)} pts/min`);
+          }
+        }
+      });
+    }catch(e){ console.warn('series settings listener failed', e); }
+
+    // Unlock logic: called after a session ends
+    async function unlockNextIfEligible(ep, minutesWatched){
+      const next = ep < TOTAL_EPISODES ? ep + 1 : null;
+      if(!next) return;
+      if(unlockedEpisodes.includes(next)) return;
+      if(minutesWatched < UNLOCK_THRESHOLD_MINUTES) return;
+
+      unlockedEpisodes.push(next);
+      createEpisodeButtons();
+
+      if(userRef){
+        try{
+          await updateDoc(userRef, { unlockedEpisodes: arrayUnion(next) });
+          showNotification(`🔓 Episode ${next} unlocked!`);
+        }catch(e){ console.error('unlock save failed', e); }
+      } else {
+        showNotification(`🔓 Episode ${next} unlocked locally`);
+      }
+    }
+
+    // Select an episode. If another is playing, auto-stop and save it first.
+    async function selectEpisode(ep){
+      if(!unlockedEpisodes.includes(ep)){ alert(`Episode ${ep} is locked. Play earlier episodes to unlock it.`); return; }
+      if(isWatching && currentEpisode === ep) return;
+
+      if(isWatching && currentEpisode !== ep){
+        await stopWatching();
+      }
+
+      currentEpisode = ep; watchSeconds = 0; pointsThisSession = 0;
+      document.getElementById('episodeTitle').textContent = `${ep}`;
+      document.getElementById('currentEpisodeNum').textContent = ep;
+      document.getElementById('watchTime').textContent = '0.00';
+      document.getElementById('currentPoints').textContent = '0.0000';
+      document.querySelectorAll('.episode-btn').forEach((b)=> b.classList.toggle('active', Number(b.dataset.ep) === ep));
+
+      await startWatching();
+    }
+
+    // Start watching: start per-second UI tick and embed attempt
+    async function startWatching(){
+      if(!currentEpisode){ alert('Please select an episode first'); return; }
+      if(isWatching) return;
+      isWatching = true; watchStartMs = Date.now(); watchSeconds = 0; pointsThisSession = 0;
+
+      tryEmbedAndPlay(currentEpisode);
+
+      document.getElementById('playBtn').disabled = true; document.getElementById('stopBtn').disabled = false;
+
+      if (watchInterval) { clearInterval(watchInterval); watchInterval = null; }
+      if (minuteSaver) { clearInterval(minuteSaver); minuteSaver = null; }
+
+      watchInterval = setInterval(()=>{
+        watchSeconds = Math.floor((Date.now() - watchStartMs)/1000);
+        const minutes = watchSeconds/60;
+        pointsThisSession = minutes * POINTS_PER_MINUTE;
+        document.getElementById('watchTime').textContent = minutes.toFixed(2);
+        document.getElementById('currentPoints').textContent = pointsThisSession.toFixed(4);
+        document.getElementById('progressFill').style.width = Math.min((minutes/60)*100,100)+'%';
+      },1000);
+
+      let minutesSaved = 0;
+      minuteSaver = setInterval(async ()=>{
+        minutesSaved++;
+        if(userRef){
+          try{
+            await updateDoc(userRef, { lastActivityTime: new Date().toISOString(), currentlyWatching: { series: SERIES_NAME, episode: currentEpisode, watchedMinutes: minutesSaved, pointsEarned: pointsThisSession } });
+          }catch(e){ console.error('minute save failed', e); }
+        }
+        if(minutesSaved >= UNLOCK_THRESHOLD_MINUTES){ unlockNextIfEligible(currentEpisode, minutesSaved); }
+      },60000);
+    }
+
+    // Stop watching: clear timers, compute elapsed, save session and unlock next if eligible
+    async function stopWatching(){
+      if(!isWatching) return;
+      if(watchInterval){
+        clearInterval(watchInterval);
+        watchInterval = null;
+      }
+      if (minuteSaver) { clearInterval(minuteSaver); minuteSaver = null; }
+
+      isWatching = false;
+      document.getElementById('playBtn').disabled = false; document.getElementById('stopBtn').disabled = true;
+
+      const elapsedMs = Date.now() - watchStartMs;
+      const elapsedSec = Math.floor(elapsedMs/1000);
+      const minutesWatched = elapsedMs / 60000;
+      let pointsEarned = minutesWatched * POINTS_PER_MINUTE;
+
+      console.log('stopWatching debug', { watchStartMs, elapsedMs, elapsedSec, minutesWatched, pointsEarned });
+      if(!isFinite(pointsEarned) || pointsEarned <= 0){
+        console.warn('Invalid pointsEarned, aborting save', pointsEarned);
+      } else {
+        const MAX_MINUTES_PER_SESSION = 24 * 60;
+        if(minutesWatched > MAX_MINUTES_PER_SESSION){
+          console.warn('Capping minutesWatched from', minutesWatched, 'to', MAX_MINUTES_PER_SESSION);
+          pointsEarned = MAX_MINUTES_PER_SESSION * POINTS_PER_MINUTE;
+        }
+
+        if(elapsedSec > 0 && userRef){
+          try{
+            console.log('Saving session:', { episode: currentEpisode, minutesWatched, pointsEarned });
+            await updateDoc(userRef, {
+              watchSessions: arrayUnion({ series: SERIES_NAME, episode: currentEpisode, watchedMinutes: minutesWatched, pointsEarned: pointsEarned, timestamp: new Date().toISOString() }),
+              totalPoints: increment(pointsEarned),
+              lastActivityTime: new Date().toISOString()
+            });
+
+            try{
+              const snap = await getDoc(userRef);
+              if(snap.exists()){
+                const data = snap.data();
+                console.log('User updated:', data);
+                const el = document.getElementById('totalPoints');
+                if(el && typeof data.totalPoints === 'number') el.textContent = data.totalPoints.toFixed(4);
+              }
+            }catch(readErr){ console.warn('Failed to read back user doc after update', readErr); }
+
+            showNotification(`✅ Saved ${pointsEarned.toFixed(4)} points from Ep ${currentEpisode}`);
+          }catch(e){ console.error('save session failed', e); showNotification('⚠️ Failed to save session — check console for details'); }
+        } else if(elapsedSec > 0){
+          showNotification(`✅ Recorded ${pointsEarned.toFixed(4)} points (not saved - not signed in)`);
+        }
+      }
+
+      await unlockNextIfEligible(currentEpisode, minutesWatched);
+
+      watchStartMs = 0; watchSeconds = 0; pointsThisSession = 0;
+      document.getElementById('watchTime').textContent = '0.00';
+      document.getElementById('currentPoints').textContent = '0.0000';
+      document.getElementById('progressFill').style.width = '0%';
+    }
+
+    // Auth and load user document (loads unlockedEpisodes). Attach realtime listener to update totalPoints
+    onAuthStateChanged(auth, async (u)=>{
+      if(!u){
+        createEpisodeButtons();
+        document.getElementById('greeting').textContent = 'Hello, Guest!';
+        return;
+      }
+
+      const usersSnap = await getDocs(query(collection(db,'users'), where('uid','==', u.uid)));
+      if(usersSnap.empty){
+        const newDocRef = doc(collection(db,'users'));
+        await setDoc(newDocRef, { uid: u.uid, unlockedEpisodes: [1], totalPoints: 0 });
+        userRef = newDocRef;
+        userData = { uid: u.uid, unlockedEpisodes: [1], totalPoints: 0 };
+
+        onSnapshot(userRef, (snap)=>{
+          if(!snap.exists()) return;
+          const data = snap.data(); userData = data;
+          if(Array.isArray(data.unlockedEpisodes)) unlockedEpisodes = data.unlockedEpisodes;
+          const total = (typeof data.totalPoints === 'number') ? data.totalPoints : 0;
+          const el = document.getElementById('totalPoints'); if(el) el.textContent = total.toFixed(4);
+          createEpisodeButtons();
+        });
+      } else {
+        const d = usersSnap.docs[0]; userRef = doc(db,'users', d.id); userData = d.data();
+        unlockedEpisodes = Array.isArray(userData.unlockedEpisodes) && userData.unlockedEpisodes.length ? userData.unlockedEpisodes : [1];
+
+        onSnapshot(userRef, (snap)=>{
+          if(!snap.exists()) return;
+          const data = snap.data(); userData = data;
+          if(Array.isArray(data.unlockedEpisodes)) unlockedEpisodes = data.unlockedEpisodes;
+          const total = (typeof data.totalPoints === 'number') ? data.totalPoints : 0;
+          const el = document.getElementById('totalPoints'); if(el) el.textContent = total.toFixed(4);
+          createEpisodeButtons();
+        });
+      }
+
+      document.getElementById('greeting').textContent = `Hello, ${userData.userName || 'User'}!`;
+      createEpisodeButtons();
+    });
+
+    window.selectEpisode = selectEpisode; window.startWatching = startWatching; window.stopWatching = stopWatching;
+
+    window.logout = ()=>{ if(isWatching) stopWatching(); signOut(auth).then(()=> window.location.href = 'index.html'); };
+
+    document.addEventListener('DOMContentLoaded', ()=>{ createEpisodeButtons(); });
+  </script>
+</head>
+<body>
+  <div class="container">
+    <h1 id="greeting">Loading...</h1>
+
+    <div class="status-info">
+      <div>⏱️ Watch Time: <strong id="watchTime">0.00</strong> minutes</div>
+      <div>💰 Points Earned (session): <strong id="currentPoints">0.0000</strong></div>
+      <div>🏆 Total Points: <strong id="totalPoints">0.0000</strong></div>
+      <div>📊 Earning Rate: <strong id="earningRate">0.0001</strong> points/minute</div>
+    </div>
+
+    <div class="player-section">
+      <div class="episode-title" id="episodeTitle">Select an Episode</div>
+
+      <div id="playerPoster" class="video-placeholder">👁️ Player preview — use the numbers below to play</div>
+
+      <div id="iframeFallback" style="display:none;color:#ffb84d;margin-bottom:8px">Embedding blocked — use browser to open the episode</div>
+      <iframe id="episodeIframe" style="display:none;width:100%;height:260px;border-radius:8px;border:0;margin-bottom:12px" allow="autoplay; fullscreen" allowfullscreen></iframe>
+
+      <div class="stats">
+        <p>📍 <strong>Series:</strong> +99 Reinforced Wooden Stick</p>
+        <p>🎬 <strong>Episode:</strong> <span id="currentEpisodeNum">-</span></p>
+        <p>⏱️ <strong>Duration:</strong> <span id="watchTime">0.00</span> minutes</p>
+        <p>💎 <strong>Earned (session):</strong> <span id="currentPoints">0.0000</span> points</p>
+      </div>
+
+      <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+
+      <div class="controls">
+        <button id="playBtn" onclick="startWatching()">▶️ Play & Earn</button>
+        <button id="stopBtn" onclick="stopWatching()" disabled>⏹️ Stop</button>
+        <button onclick="window.location.href='earn.html'">← Back to Series</button>
+        <button onclick="logout()">Logout</button>
+      </div>
+    </div>
+
+    <h2 style="color:#ffb84d">📺 Episodes (46 Total)</h2>
+    <div class="episodes-grid" id="episodesGrid"></div>
+  </div>
+</body>
+</html>
